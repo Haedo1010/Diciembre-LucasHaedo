@@ -27,7 +27,7 @@ const Product = sequelize.define('Product', {
     type: DataTypes.INTEGER,
     defaultValue: 0
   },
-  categoria: { // ✅ AGREGADO
+  categoria: {
     type: DataTypes.STRING(50),
     defaultValue: 'extra'
   },

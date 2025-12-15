@@ -38,7 +38,7 @@ api.interceptors.request.use((config) => {
         const idNumerico = match[1];
         const idSeguro = generarIdSeguro(idNumerico);
         config.url = config.url.replace(/\/(\d+)$/, `/${idSeguro}`);
-        console.log(`🔐 Request: Convertido ID ${idNumerico} → ${idSeguro} en ${config.url}`);
+        console.log(` Request: Convertido ID ${idNumerico} → ${idSeguro} en ${config.url}`);
       }
     }
     
@@ -108,6 +108,19 @@ api.interceptors.response.use((response) => {
       // Podríamos mostrar un mensaje específico al usuario aquí
     }
   }
+  // Manejar 401: token inválido/expirado -> limpiar sesión y redirigir a login
+  if (error.response?.status === 401) {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+    } catch (e) {
+      // ignore
+    }
+    // Redirigir al login para forzar re-login
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  }
   return Promise.reject(error);
 });
 
@@ -128,6 +141,7 @@ export const authAPI = {
 export const clasesAPI = {
   obtenerTodas: () => api.get('/clases'),
   obtenerPorId: (id) => api.get(`/clases/${id}`),
+  obtenerMisClases: () => api.get('/clases/profesor/mis-clases'),
   crear: (datos) => api.post('/clases/crear', datos),
   actualizar: (id, datos) => api.put(`/clases/${id}`, datos),
   eliminar: (id) => api.delete(`/clases/${id}`)
@@ -152,7 +166,7 @@ export const inscripcionesAPI = {
 export const tiendaAPI = {
   obtenerProductos: () => api.get('/shop/productos'),
   crearOrden: (datos) => api.post('/shop/ordenes', datos),
-  obtenerMisCompras: () => api.get('/shop/mis-compras'), // ← NUEVA RUTA
+  obtenerMisCompras: () => api.get('/shop/mis-compras'),
   obtenerOrdenes: () => api.get('/shop/ordenes')
 };
 // ========================================
@@ -170,8 +184,17 @@ export const adminAPI = {
   aprobarProfesor: (solicitudId) => api.post(`/admin/aprobar-profesor/${solicitudId}`),
   rechazarProfesor: (solicitudId) => api.post(`/admin/rechazar-profesor/${solicitudId}`),
   obtenerUsuarios: () => api.get('/admin/usuarios'),
-  actualizarUsuario: (usuarioId, datos) => api.put(`/admin/usuario/${usuarioId}`, datos)
+  actualizarUsuario: (usuarioId, datos) => api.put(`/admin/usuario/${usuarioId}`, datos),
+  cambiarRol: (usuarioId, nuevoRol) => api.put(`/admin/usuario/${usuarioId}`, { rol: nuevoRol }),
+  eliminarUsuario: (usuarioId) => api.delete(`/admin/usuario/${usuarioId}`),
+  buscarUsuarios: (termino) => api.get('/admin/usuarios', { params: { buscar: termino } }),
+  obtenerDescripcionUsuario: (usuarioId) => api.get(`/admin/usuarios/${usuarioId}/descripcion`),
+  obtenerUsuariosNoVerificados: () => api.get('/admin/usuarios-no-verificados'),
+  verificarUsuario: (usuarioId) => api.post(`/admin/verificar-usuario/${usuarioId}`)
 };
+
+// Agregar función de bloqueo de usuarios
+adminAPI.toggleBloqueoUsuario = (usuarioId) => api.put(`/admin/usuarios/${usuarioId}/toggle-block`);
 
 // Aliases para compatibilidad con código anterior
 export const enrollmentAPI = inscripcionesAPI;

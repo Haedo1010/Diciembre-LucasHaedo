@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 const Home = () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [activeCard, setActiveCard] = useState(null); // Para controlar qué card está abierta
+  const [activeCard, setActiveCard] = useState(null);
 
   const carouselSlides = [
     {

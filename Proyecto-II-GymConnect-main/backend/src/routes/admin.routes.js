@@ -10,20 +10,34 @@ import {
 import { enviarEmailAprobacion } from '../config/email.js';
 import bcrypt from 'bcrypt';
 import { validarIdRecibido } from '../utils/idSeguro.js';
+import { Op } from 'sequelize';
 
 const router = express.Router();
 
 // Middleware para todas las rutas admin que usan IDs
 const validarRutasConId = [verifyToken, verifyAdmin, verificarIdSeguro];
 
-// Obtener todos los usuarios - ADMIN ONLY
+// Obtener todos los usuarios (con búsqueda opcional) - ADMIN ONLY
 router.get('/usuarios', verifyToken, verifyAdmin, async (req, res) => {
   try {
+    const { buscar } = req.query;
     
-    const usuarios = await User.findAll({
-      attributes: ['id', 'nombre', 'email', 'rol', 'telefono', 'createdAt'],
+    let opciones = {
+      attributes: ['id', 'nombre', 'email', 'rol', 'telefono', 'createdAt', 'deletedAt', 'isBlocked', 'blockedAt', 'blockReason', 'loginLockedUntil', 'verificationLockedUntil'],
       raw: true,
-    });
+      where: {
+        deletedAt: null  // Solo usuarios no eliminados
+      }
+    };
+    
+    if (buscar) {
+      opciones.where[Op.or] = [
+        { nombre: { [Op.iLike]: `%${buscar}%` } },
+        { email: { [Op.iLike]: `%${buscar}%` } }
+      ];
+    }
+    
+    const usuarios = await User.findAll(opciones);
     
     const usuariosDecorados = usuarios.map(usuario => {
       // Función para calcular dígito
@@ -300,15 +314,40 @@ router.post('/rechazar-profesor/:id', ...validarRutasConId, async (req, res) => 
 // Actualizar usuario - CON VALIDACIÓN DE ID SEGURO
 router.put('/usuario/:id', ...validarRutasConId, async (req, res) => {
   try {
-    const idBase = req.idValidado.base;
+    const validacion = validarIdRecibido(req.params.id);
     
+    if (!validacion.valido) {
+      return res.status(400).json({ 
+        error: validacion.error,
+        id_recibido: req.params.id
+      });
+    }
+
+    const idBase = validacion.id;
     const { rol, nombre, email, telefono } = req.body;
 
     const user = await User.findByPk(idBase);
     if (!user) {
       return res.status(404).json({ 
         error: 'Usuario no encontrado',
-        idRecibido: req.idValidado.completo
+        idBuscado: validacion.idSeguro
+      });
+    }
+
+    // Proteger admin principal - no puede cambiar su rol
+    if (user.email === 'admin@gymconnect.com' && rol) {
+      return res.status(403).json({ 
+        error: 'No se puede cambiar el rol del admin principal',
+        cuenta_protegida: user.email
+      });
+    }
+
+    // Validar que no se cambie a un rol inválido
+    const rolesValidos = ['cliente', 'profesor', 'admin'];
+    if (rol && !rolesValidos.includes(rol)) {
+      return res.status(400).json({ 
+        error: 'Rol inválido',
+        rolesPermitidos: rolesValidos
       });
     }
 
@@ -319,44 +358,265 @@ router.put('/usuario/:id', ...validarRutasConId, async (req, res) => {
 
     await user.save();
     
-    // Decorar respuesta con ID seguro
-    const respuestaDecorada = decorarRespuestaConIdsSeguros({
-      message: 'Usuario actualizado',
-      user
+    res.json({
+      message: 'Usuario actualizado exitosamente',
+      user: {
+        id: generarIdSeguro(user.id),
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol,
+        telefono: user.telefono
+      }
     });
-
-    res.json(respuestaDecorada);
   } catch (error) {
+    // Manejar duplicado de email
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        error: 'El email ya existe en el sistema',
+        campo: error.fields?.[0]
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 });
 
 // Eliminar usuario - CON VALIDACIÓN DE ID SEGURO
-router.delete('/usuario/:id', ...validarRutasConId, async (req, res) => {
+router.delete('/usuario/:id', verifyToken, verifyAdmin, async (req, res) => {
   try {
-    const idBase = req.idValidado.base; // Usar ID validado
+    const validacion = validarIdRecibido(req.params.id);
+    
+    if (!validacion.valido) {
+      return res.status(400).json({ 
+        error: validacion.error,
+        id_recibido: req.params.id
+      });
+    }
+
+    const idBase = validacion.id;
     
     const user = await User.findByPk(idBase);
 
     if (!user) {
       return res.status(404).json({ 
         error: 'Usuario no encontrado',
-        idRecibido: req.idValidado.completo
+        idBuscado: validacion.idSeguro
       });
     }
 
-    // Proteger contra borrar admin
-    if (user.rol === 'admin') {
-      return res.status(403).json({ error: 'No se puede eliminar un admin' });
+    // Proteger contra borrar admin principal
+    if (user.email === 'admin@gymconnect.com') {
+      return res.status(403).json({ 
+        error: 'No se puede eliminar la cuenta del admin principal',
+        cuenta_protegida: user.email
+      });
     }
 
-    await user.destroy();
+    const nombreEliminado = user.nombre;
+    const emailEliminado = user.email;
+    
+    // Borrado lógico - solo actualizar deletedAt
+    user.deletedAt = new Date();
+    await user.save();
     
     res.json({ 
       message: 'Usuario eliminado exitosamente',
-      idEliminado: req.idValidado.completo
+      usuario_eliminado: {
+        id: validacion.idSeguro,
+        nombre: nombreEliminado,
+        email: emailEliminado,
+        eliminado_en: user.deletedAt
+      }
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Bloquear/Desbloquear usuario - ADMIN ONLY
+router.put('/usuarios/:id/toggle-block', validarRutasConId, async (req, res) => {
+  try {
+    const { blockReason } = req.body;
+
+    // Obtener ID numérico validado por el middleware de ID seguro si existe
+    const idParam = req.idValidado && req.idValidado.base ? parseInt(req.idValidado.base, 10) : (req.params.id);
+    const user = await User.findByPk(idParam);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Proteger al admin principal de ser bloqueado
+    if (user.email === 'admin@gymconnect.com') {
+      return res.status(403).json({ error: 'No puedes bloquear al admin principal' });
+    }
+
+    const ahora = new Date();
+    
+    if (user.isBlocked) {
+      // Desbloquear
+      user.isBlocked = false;
+      user.blockedAt = null;
+      user.blockReason = null;
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: `Usuario ${user.email} desbloqueado`,
+        usuario: {
+          id: user.id,
+          email: user.email,
+          nombre: user.nombre,
+          isBlocked: user.isBlocked
+        }
+      });
+    } else {
+      // Bloquear
+      user.isBlocked = true;
+      user.blockedAt = ahora;
+      user.blockReason = blockReason || 'Bloqueado por administrador';
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: `Usuario ${user.email} bloqueado`,
+        usuario: {
+          id: user.id,
+          email: user.email,
+          nombre: user.nombre,
+          isBlocked: user.isBlocked,
+          blockReason: user.blockReason
+        }
+      });
+    }
+  } catch (error) {
+    console.error(' Error bloqueando/desbloqueando usuario:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener descripción completa de un usuario: compras y clases
+router.get('/usuarios/:id/descripcion', validarRutasConId, async (req, res) => {
+  try {
+    // Obtener ID numérico validado por el middleware de ID seguro si existe
+    const idParam = req.idValidado && req.idValidado.base ? parseInt(req.idValidado.base, 10) : (req.params.id);
+
+    const user = await User.findByPk(idParam, {
+      attributes: ['id', 'nombre', 'email', 'rol', 'telefono', 'isBlocked', 'blockedAt']
+    });
+
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Obtener enrollments con info de clase
+    const enrollments = await user.getEnrollments({
+      include: [{ association: 'clase', attributes: ['id', 'nombre', 'descripcion', 'fecha'] }]
+    });
+
+    // Obtener órdenes y items con producto
+    const Product = (await import('../models/Product.js')).default;
+    const orders = await user.getOrders({
+      include: [{ association: 'items', include: [{ model: Product, attributes: ['id', 'nombre', 'precio', 'imagen'] }] }]
+    });
+
+    res.json({
+      usuario: user,
+      inscripciones: enrollments,
+      compras: orders
+    });
+  } catch (error) {
+    console.error(' Error en /usuarios/:id/descripcion:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener usuarios no verificados - ADMIN ONLY
+router.get('/usuarios-no-verificados', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const usuariosNoVerificados = await User.findAll({
+      attributes: ['id', 'nombre', 'email', 'emailVerified', 'verificationCode', 'createdAt'],
+      where: {
+        emailVerified: false,
+        deletedAt: null
+      },
+      raw: true,
+      order: [['createdAt', 'DESC']]
+    });
+
+    // Decorar IDs con dígito verificador
+    const usuariosDecorados = usuariosNoVerificados.map(usuario => {
+      const calcularDigitoVerificador = (id) => {
+        const strId = id.toString();
+        let suma = 0;
+        for (let i = 0; i < strId.length; i++) {
+          const digito = parseInt(strId[i], 10);
+          const multiplicador = (i % 2 === 0) ? 3 : 7;
+          suma += digito * multiplicador;
+        }
+        return (suma % 10).toString();
+      };
+
+      if (usuario.id !== undefined && usuario.id !== null) {
+        const idNum = parseInt(usuario.id, 10);
+        if (!isNaN(idNum)) {
+          const digito = calcularDigitoVerificador(idNum);
+          return {
+            ...usuario,
+            id: `${idNum}-${digito}`,
+            idBase: idNum
+          };
+        }
+      }
+      return usuario;
+    });
+
+    res.json(usuariosDecorados);
+  } catch (error) {
+    console.error(' Error en /usuarios-no-verificados:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Verificar usuario manualmente - ADMIN ONLY
+router.post('/verificar-usuario/:id', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const validacion = validarIdRecibido(req.params.id);
+    
+    if (!validacion.valido) {
+      return res.status(400).json({ 
+        error: validacion.error,
+        id_recibido: req.params.id
+      });
+    }
+
+    const idBase = validacion.id;
+
+    const usuario = await User.findByPk(idBase);
+
+    if (!usuario) {
+      return res.status(404).json({ 
+        error: 'Usuario no encontrado',
+        id_buscado: validacion.idSeguro
+      });
+    }
+
+    // Marcar como verificado
+    usuario.emailVerified = true;
+    usuario.verificationCode = null;
+    usuario.verificationCodeExpiresAt = null;
+    usuario.verificationAttempts = 0;
+    usuario.verificationLockedUntil = null;
+
+    await usuario.save();
+
+    res.json({
+      mensaje: `Usuario ${usuario.nombre} (${usuario.email}) verificado exitosamente`,
+      usuario: {
+        id: `${usuario.id}-${((usuario.id.toString().split('').reduce((sum, digit, i) => sum + parseInt(digit) * ((i % 2 === 0) ? 3 : 7), 0)) % 10)}`,
+        nombre: usuario.nombre,
+        email: usuario.email,
+        emailVerified: usuario.emailVerified
+      }
+    });
+  } catch (error) {
+    console.error(' Error en /verificar-usuario:', error);
     res.status(500).json({ error: error.message });
   }
 });

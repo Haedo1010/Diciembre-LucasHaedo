@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura_cambiala_en_produccion';
+const SECRET_KEY = process.env.JWT_SECRET;
 
 export const generarToken = (user) => {
   return jwt.sign(

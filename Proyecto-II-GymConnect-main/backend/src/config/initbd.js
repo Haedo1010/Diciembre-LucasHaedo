@@ -10,7 +10,6 @@ const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: path.join(__dirname, '../../database.sqlite'),
   logging: false,
-  // ✅ AGREGAR ESTAS OPCIONES
   sync: { force: false }, // Evitar force sync
   define: {
     freezeTableName: true

@@ -2,8 +2,12 @@ import express from 'express';
 import Enrollment from '../models/Enrollment.js';
 import Class from '../models/Class.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
+import denyAdmin from '../middlewares/denyAdmin.js';
 
 const router = express.Router();
+
+// Evitar que usuarios con rol 'admin' accedan a rutas de inscripciones
+router.use(denyAdmin);
 
 router.use((req, res, next) => {
   next();

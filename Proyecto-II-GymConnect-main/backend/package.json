@@ -6,7 +6,14 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "node src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "validate-db": "node scripts/validate_db.mjs",
+    "backup": "node scripts/backup_partitioned.mjs",
+    "restore-backup": "node scripts/restore_backup.mjs",
+    "verify-restore": "node scripts/verify_and_restore.mjs",
+    "migrate-encryption": "node scripts/migrate_to_encryption.mjs",
+    "add-profesor-id": "node scripts/add_profesor_id_column.mjs",
+    "logs": "node scripts/view_logs.mjs"
   },
   "keywords": [],
   "author": "",

@@ -34,6 +34,14 @@ const Class = sequelize.define('Class', {
   activa: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  profesor_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'classes',

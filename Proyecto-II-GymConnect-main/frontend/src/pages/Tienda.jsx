@@ -62,8 +62,6 @@ const Tienda = () => {
   };
 
    const handleCheckout = () => {
-    // Esta función ahora solo limpia el carrito
-    // La lógica real está en CartSidebar
     setCart([]);
     setCartOpen(false);
   };

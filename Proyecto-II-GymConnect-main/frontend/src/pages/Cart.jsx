@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { shopAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import PaymentModal from '../components/PaymentModal';
 
 export default function Cart() {
   const [carrito, setCarrito] = useState(JSON.parse(localStorage.getItem('carrito')) || []);
   const [metodoPago, setMetodoPago] = useState('tarjeta');
-  const [numeroTarjeta, setNumeroTarjeta] = useState('');
+  const [showPayment, setShowPayment] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -18,12 +19,18 @@ export default function Cart() {
       navigate('/login');
       return;
     }
-
     if (!numeroTarjeta.trim()) {
-      alert('Ingresa número de tarjeta');
+    }
+    alert('Ingresa numero de tarjeta');
+    alert('Por favor, ingresa un número de tarjeta válido');
       return;
     }
 
+    // Abrir modal de pago
+    setShowPayment(true);
+  };
+
+  const handleSubmitPayment = async (paymentData) => {
     setLoading(true);
     try {
       const items = carrito.map(item => ({ 
@@ -31,20 +38,22 @@ export default function Cart() {
         cantidad: item.cantidad 
       }));
 
-      // ✅ USAR createOrder del shopAPI
-      await shopAPI.createOrder({ 
+
+      const response = await shopAPI.crearOrden({ 
         items, 
-        metodo_pago: metodoPago, 
-        numero_tarjeta: numeroTarjeta 
+        metodo_pago: paymentData.metodo_pago || metodoPago, 
+        numero_tarjeta: paymentData.numero_tarjeta 
       });
 
-      alert('✅ Compra realizada exitosamente');
+      const ultimosDos = paymentData.numero_tarjeta.slice(-2);
+      alert(`✅ ¡Pago exitoso!\nOrden: #${response.data.order_id}\nTarjeta: •••••••••••••${ultimosDos}`);
+      
       localStorage.removeItem('carrito');
       setCarrito([]);
       navigate('/dashboard');
     } catch (error) {
       console.error('Error en compra:', error);
-      alert('❌ ' + (error.response?.data?.error || 'Error en compra'));
+      throw new Error(error.response?.data?.error || 'Error en compra');
     } finally {
       setLoading(false);
     }
@@ -110,8 +119,8 @@ export default function Cart() {
 
         <div style={{ marginTop: '15px' }}>
           <label>Número de Tarjeta:</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={numeroTarjeta}
             onChange={(e) => setNumeroTarjeta(e.target.value)}
             placeholder="1234 5678 9012 3456"
@@ -137,6 +146,7 @@ export default function Cart() {
           {loading ? 'Procesando...' : '💳 Finalizar Compra'}
         </button>
       </div>
-    </div>
+
+      <PaymentModal open={showPayment} onClose={() => setShowPayment(false)} total={total} loading={loading} onSubmit={handleSubmitPayment} />
+      </div>
   );
-}

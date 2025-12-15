@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { profesorAPI, adminAPI } from '../services/api';
 import Navbar from '../components/Navbar';
+import UserVerification from '../components/UserVerification';
 import { validarIdRecibido, generarIdSeguro } from '../utils/idSeguro';
 
 const AdminPanel = () => {
@@ -11,6 +12,8 @@ const AdminPanel = () => {
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(false);
   const [erroresIds, setErroresIds] = useState([]);
+  const [showDescripcion, setShowDescripcion] = useState(false);
+  const [descripcionData, setDescripcionData] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'solicitudes') {
@@ -18,6 +21,7 @@ const AdminPanel = () => {
     } else if (activeTab === 'usuarios') {
       loadUsuarios();
     }
+    // El tab 'verificacion' no necesita cargar nada aquí, lo hace el componente
   }, [activeTab]);
 
   const loadSolicitudes = async () => {
@@ -42,7 +46,7 @@ const AdminPanel = () => {
       
       if (idsInvalidos.length > 0) {
         setErroresIds(idsInvalidos);
-        console.warn('⚠️ Solicitudes con IDs potencialmente alterados:', idsInvalidos);
+        console.warn(' Solicitudes con IDs potencialmente alterados:', idsInvalidos);
       }
       
       setSolicitudes(solicitudesValidadas);
@@ -58,29 +62,34 @@ const AdminPanel = () => {
       setLoading(true);
       const response = await adminAPI.obtenerUsuarios();
 
-      console.log("📥 IDs recibidos del backend:", response.data.map(u => u.id));
+      console.log(" IDs recibidos del backend:", response.data.map(u => u.id));
       
-      // Validar IDs recibidos
+      // Validar IDs recibidos y calcular estado de bloqueo efectivo
       const usuariosValidados = response.data.map(usuario => {
         const validacion = validarIdRecibido(usuario.id);
-              // SI EL ID ES SÓLO NÚMERO (sin dígito), AGREGAR EL DÍGITO
+
+        // Normalizar ID numérico a ID seguro
         if (typeof usuario.id === 'number' || /^\d+$/.test(usuario.id)) {
           const idConDigito = generarIdSeguro(usuario.id);
-          console.log(` Convertido: ${usuario.id} → ${idConDigito}`);
           usuario.id = idConDigito;
-          
-          // Re-validar con el nuevo ID
-          const validacionCorregida = validarIdRecibido(idConDigito);
-          return {
-            ...usuario,
-            _idValido: validacionCorregida.valido,
-            _idError: validacionCorregida.error
-          };
         }
+
+        // Re-validar ID (ya sea original o convertido)
+        const validacionFinal = validarIdRecibido(usuario.id);
+
+        // Calcular si está bloqueado efectivamente (admin block OR locks por login/verification aún vigentes)
+        const ahora = new Date();
+        const tieneLoginLock = usuario.loginLockedUntil && new Date(usuario.loginLockedUntil) > ahora;
+        const tieneVerificationLock = usuario.verificationLockedUntil && new Date(usuario.verificationLockedUntil) > ahora;
+        const isBlockedFlag = !!usuario.isBlocked || !!tieneLoginLock || !!tieneVerificationLock;
+
         return {
           ...usuario,
-          _idValido: validacion.valido,
-          _idError: validacion.error
+          _idValido: validacionFinal.valido,
+          _idError: validacionFinal.error,
+          isBlockedFlag,
+          _hasLoginLock: !!tieneLoginLock,
+          _hasVerificationLock: !!tieneVerificationLock
         };
       });
       
@@ -91,7 +100,7 @@ const AdminPanel = () => {
       
       if (idsInvalidos.length > 0) {
         setErroresIds(idsInvalidos);
-        console.warn('⚠️ Usuarios con IDs potencialmente alterados:', idsInvalidos);
+        console.warn(' Usuarios con IDs potencialmente alterados:', idsInvalidos);
       }
       
       setUsuarios(usuariosValidados);
@@ -107,17 +116,17 @@ const AdminPanel = () => {
       // Validar ID antes de enviar
       const validacion = validarIdRecibido(idSeguro);
       if (!validacion.valido) {
-        alert(`❌ Error de seguridad: ${validacion.error}`);
+        alert(` Error de seguridad: ${validacion.error}`);
         return;
       }
       
       // El interceptor en api.js convertirá automáticamente el ID a formato seguro
       const response = await adminAPI.aprobarProfesor(idSeguro);
-      alert('✅ ' + response.data.message);
+      alert('✔' + response.data.message);
       loadSolicitudes();
     } catch (error) {
       if (error.response?.status === 400 && error.response.data?.error?.includes('ID alterado')) {
-        alert('🚨 Error de seguridad: El ID ha sido alterado. Operación cancelada.');
+        alert(' Error de seguridad: El ID ha sido alterado. Operación cancelada.');
       } else {
         alert('Error aprobando solicitud');
       }
@@ -130,7 +139,7 @@ const AdminPanel = () => {
         // Validar ID antes de enviar
         const validacion = validarIdRecibido(idSeguro);
         if (!validacion.valido) {
-          alert(`❌ Error de seguridad: ${validacion.error}`);
+          alert(` Error de seguridad: ${validacion.error}`);
           return;
         }
         
@@ -139,7 +148,7 @@ const AdminPanel = () => {
         loadSolicitudes();
       } catch (error) {
         if (error.response?.status === 400 && error.response.data?.error?.includes('ID alterado')) {
-          alert('🚨 Error de seguridad: El ID ha sido alterado. Operación cancelada.');
+          alert(' Error de seguridad: El ID ha sido alterado. Operación cancelada.');
         } else {
           alert('Error rechazando solicitud');
         }
@@ -176,7 +185,7 @@ const AdminPanel = () => {
       // Validar ID antes de enviar
       const validacion = validarIdRecibido(idSeguro);
       if (!validacion.valido) {
-        alert(`❌ Error de seguridad: ${validacion.error}`);
+        alert(` Error de seguridad: ${validacion.error}`);
         return;
       }
       
@@ -185,7 +194,7 @@ const AdminPanel = () => {
       loadUsuarios();
     } catch (error) {
       if (error.response?.status === 400 && error.response.data?.error?.includes('ID alterado')) {
-        alert('🚨 Error de seguridad: El ID ha sido alterado. Operación cancelada.');
+        alert(' Error de seguridad: El ID ha sido alterado. Operación cancelada.');
       } else {
         alert('Error cambiando rol');
       }
@@ -198,7 +207,7 @@ const AdminPanel = () => {
         // Validar ID antes de enviar
         const validacion = validarIdRecibido(idSeguro);
         if (!validacion.valido) {
-          alert(`❌ Error de seguridad: ${validacion.error}`);
+          alert(` Error de seguridad: ${validacion.error}`);
           return;
         }
         
@@ -207,11 +216,53 @@ const AdminPanel = () => {
         loadUsuarios();
       } catch (error) {
         if (error.response?.status === 400 && error.response.data?.error?.includes('ID alterado')) {
-          alert('🚨 Error de seguridad: El ID ha sido alterado. Operación cancelada.');
+          alert(' Error de seguridad: El ID ha sido alterado. Operación cancelada.');
         } else {
           alert(error.response?.data?.error || 'Error eliminando usuario');
         }
       }
+    }
+  };
+
+  const handleToggleBlock = async (idSeguro, usuarioEmail) => {
+    if (usuarioEmail === 'admin@gymconnect.com') {
+      alert('No puedes bloquear al admin principal');
+      return;
+    }
+
+    const validacion = validarIdRecibido(idSeguro);
+    if (!validacion.valido) {
+      alert(` Error de seguridad: ${validacion.error}`);
+      return;
+    }
+
+    try {
+      const usuario = usuarios.find(u => u.id === idSeguro);
+      const accion = usuario?.isBlockedFlag ? 'desbloquear' : 'bloquear';
+      
+      if (window.confirm(`¿Estás seguro de ${accion} a este usuario?`)) {
+        await adminAPI.toggleBloqueoUsuario(idSeguro);
+        alert(`Usuario ${accion}do exitosamente`);
+        loadUsuarios();
+      }
+    } catch (error) {
+      alert(error.response?.data?.error || `Error ${accion} usuario`);
+    }
+  };
+
+  const handleMostrarDescripcion = async (idSeguro) => {
+    try {
+      const validacion = validarIdRecibido(idSeguro);
+      if (!validacion.valido) {
+        alert(` Error de seguridad: ${validacion.error}`);
+        return;
+      }
+
+      const resp = await adminAPI.obtenerDescripcionUsuario(idSeguro);
+      setDescripcionData(resp.data);
+      setShowDescripcion(true);
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error obteniendo descripción');
     }
   };
 
@@ -250,7 +301,7 @@ const AdminPanel = () => {
         )}
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => setActiveTab('solicitudes')}
             style={{
@@ -278,6 +329,20 @@ const AdminPanel = () => {
             }}
           >
             Gestión de Usuarios
+          </button>
+          <button
+            onClick={() => setActiveTab('verificacion')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: activeTab === 'verificacion' ? '#00ff87' : '#161616',
+              color: activeTab === 'verificacion' ? '#0a0a0a' : '#a0a0a0',
+              border: '1px solid #2a2a2a',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            🔐 Verificar Usuarios
           </button>
         </div>
 
@@ -461,6 +526,7 @@ const AdminPanel = () => {
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#00ff87' }}>Email</th>
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#00ff87' }}>Rol</th>
                       <th style={{ padding: '1rem', textAlign: 'left', color: '#00ff87' }}>Teléfono</th>
+                       <th style={{ padding: '1rem', textAlign: 'center', color: '#00ff87' }}>Estado Bloqueo</th>
                       <th style={{ padding: '1rem', textAlign: 'center', color: '#00ff87' }}>Acciones</th>
                     </tr>
                   </thead>
@@ -500,15 +566,15 @@ const AdminPanel = () => {
                           <select
                             value={usuario.rol}
                             onChange={(e) => handleCambiarRol(usuario.id, e.target.value)}
-                            disabled={usuario.rol === 'admin' || !usuario._idValido}
+                            disabled={usuario.email === 'admin@gymconnect.com' || !usuario._idValido}
                             style={{
                               padding: '0.5rem',
                               background: usuario._idValido ? '#0a0a0a' : '#2a2a2a',
                               border: usuario._idValido ? '1px solid #2a2a2a' : '1px solid #ff4444',
                               borderRadius: '0.25rem',
                               color: usuario._idValido ? '#ffffff' : '#ff4444',
-                              cursor: (usuario.rol === 'admin' || !usuario._idValido) ? 'not-allowed' : 'pointer',
-                              opacity: (usuario.rol === 'admin' || !usuario._idValido) ? 0.6 : 1
+                              cursor: (usuario.email === 'admin@gymconnect.com' || !usuario._idValido) ? 'not-allowed' : 'pointer',
+                              opacity: (usuario.email === 'admin@gymconnect.com' || !usuario._idValido) ? 0.6 : 1
                             }}
                           >
                             <option value="cliente">Cliente</option>
@@ -519,7 +585,59 @@ const AdminPanel = () => {
                         <td style={{ padding: '1rem', color: '#a0a0a0' }}>
                           {usuario.telefono || '-'}
                         </td>
+                         <td style={{ padding: '1rem', textAlign: 'center' }}>
+                           <span style={{
+                             padding: '0.25rem 0.75rem',
+                             borderRadius: '0.25rem',
+                             fontSize: '0.85rem',
+                             fontWeight: '600',
+                             background: usuario.isBlockedFlag ? 'rgba(255, 68, 68, 0.2)' : 'rgba(0, 255, 135, 0.2)',
+                             color: usuario.isBlockedFlag ? '#ff4444' : '#00ff87'
+                           }}>
+                             {usuario.isBlockedFlag ? '🔒 Bloqueado' : '✓ Activo'}
+                           </span>
+                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
+                           <button
+                             onClick={() => handleToggleBlock(usuario.id, usuario.email)}
+                             disabled={usuario.email === 'admin@gymconnect.com' || !usuario._idValido}
+                             style={{
+                               padding: '0.5rem 1rem',
+                               background: usuario.email === 'admin@gymconnect.com' || !usuario._idValido
+                                 ? '#666'
+                                 : usuario.isBlockedFlag
+                                 ? '#00ff87'
+                                 : '#ff4444',
+                               color: usuario.email === 'admin@gymconnect.com' || !usuario._idValido
+                                 ? '#999'
+                                 : '#0a0a0a',
+                               border: 'none',
+                               borderRadius: '0.25rem',
+                               cursor: (usuario.email === 'admin@gymconnect.com' || !usuario._idValido) ? 'not-allowed' : 'pointer',
+                               fontSize: '0.85rem',
+                               fontWeight: '600',
+                               marginRight: '0.5rem',
+                               opacity: (usuario.email === 'admin@gymconnect.com' || !usuario._idValido) ? 0.6 : 1
+                             }}
+                           >
+                             {usuario.isBlockedFlag ? 'Desbloquear' : 'Bloquear'}
+                           </button>
+                          <button
+                            onClick={() => handleMostrarDescripcion(usuario.id)}
+                            disabled={!usuario._idValido}
+                            style={{
+                              padding: '0.5rem 1rem',
+                              background: '#161616',
+                              color: '#a0a0a0',
+                              border: '1px solid #2a2a2a',
+                              borderRadius: '0.25rem',
+                              cursor: usuario._idValido ? 'pointer' : 'not-allowed',
+                              fontSize: '0.85rem',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Descripción
+                          </button>
                           {usuario.rol !== 'admin' && (
                             <button
                               onClick={() => handleEliminar(usuario.id)}
@@ -548,6 +666,62 @@ const AdminPanel = () => {
           </div>
         )}
       </div>
+      {/* Modal simple para mostrar descripción del usuario */}
+      {showDescripcion && descripcionData && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '90%', maxWidth: '900px', background: '#0f0f0f', padding: '1.5rem', borderRadius: '0.5rem', color: '#fff', maxHeight: '80vh', overflow: 'auto' }}>
+            <h2 style={{ marginTop: 0 }}>{descripcionData.usuario.nombre} — Descripción</h2>
+            <p style={{ color: '#a0a0a0' }}>Email: {descripcionData.usuario.email} | Rol: {descripcionData.usuario.rol}</p>
+
+            <section style={{ marginTop: '1rem' }}>
+              <h3>Compras</h3>
+              {descripcionData.compras && descripcionData.compras.length > 0 ? (
+                descripcionData.compras.map(orden => (
+                  <div key={orden.id} style={{ border: '1px solid #222', padding: '0.75rem', borderRadius: '0.35rem', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <div>Orden #{orden.id} — Fecha: {new Date(orden.createdAt).toLocaleString()}</div>
+                      <div>Total: ${orden.total || orden.totalAmount || '—'}</div>
+                    </div>
+                    <ul>
+                      {orden.items && orden.items.map(item => (
+                        <li key={item.id} style={{ color: '#a0a0a0' }}>{item.product ? item.product.nombre : item.product_id} — Cant: {item.cantidad || item.quantity || 1}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <p style={{ color: '#a0a0a0' }}>Sin compras registradas</p>
+              )}
+            </section>
+
+            <section style={{ marginTop: '1rem' }}>
+              <h3>Clases Inscritas</h3>
+              {descripcionData.inscripciones && descripcionData.inscripciones.length > 0 ? (
+                descripcionData.inscripciones.map(ins => (
+                  <div key={ins.id} style={{ border: '1px solid #222', padding: '0.75rem', borderRadius: '0.35rem', marginBottom: '0.5rem' }}>
+                    <div style={{ fontWeight: '600' }}>{ins.clase ? ins.clase.nombre : `Clase ${ins.class_id}`}</div>
+                    <div style={{ color: '#a0a0a0' }}>{ins.clase?.descripcion || ''} — Fecha: {ins.clase?.fecha ? new Date(ins.clase.fecha).toLocaleString() : '—'}</div>
+                    <div style={{ color: '#888', fontSize: '0.85rem' }}>Inscripción: {new Date(ins.createdAt).toLocaleString()}</div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ color: '#a0a0a0' }}>Sin inscripciones</p>
+              )}
+            </section>
+
+            <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+              <button onClick={() => { setShowDescripcion(false); setDescripcionData(null); }} style={{ padding: '0.5rem 1rem', borderRadius: '0.25rem', background: '#00ff87', color: '#0a0a0a', border: 'none', fontWeight: '600' }}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contenido de Verificación */}
+      {activeTab === 'verificacion' && (
+        <div style={{ background: '#1a1a1a', borderRadius: '0.75rem', padding: '1.5rem' }}>
+          <UserVerification />
+        </div>
+      )}
     </div>
   );
 };

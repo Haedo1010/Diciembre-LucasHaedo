@@ -21,12 +21,11 @@ const Dashboard = () => {
   const loadStats = async () => {
     try {
       setLoading(true);
-      // ✅ CORREGIDO
       const response = await inscripcionesAPI.getMyClasses();
-      setMyClassesCount(response.data?.length || 0); // ✅ Usar setMyClassesCount, no setMisClases
+      setMyClassesCount(response.data?.length || 0);
     } catch (error) {
       console.error('Error cargando estadísticas:', error);
-      setMyClassesCount(0); // ✅ En caso de error, poner en 0
+      setMyClassesCount(0);
     } finally {
       setLoading(false);
     }   
@@ -277,7 +276,7 @@ const Dashboard = () => {
                   }}>
                     {[
                       { icon: '🏃‍♀️', title: 'Ver Clases', desc: 'Explorar e inscribirse en clases', path: '/classes' },
-                      { icon: '📚', title: 'Mis Clases', desc: 'Ver clases en las que estoy inscrito', path: '/my-classes' },
+                      { icon: '📚', title: 'Clases Tomadas', desc: 'Ver clases que dirijo como profesor', path: '/my-classes' },
                       { icon: '👤', title: 'Mi Perfil', desc: 'Ver y editar información personal', path: '/profile' },
                       { icon: '🛍️', title: 'Tienda', desc: 'Compra productos y accesorios', path: '/tienda' }
                     ].map((action, idx) => (

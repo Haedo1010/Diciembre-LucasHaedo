@@ -52,58 +52,28 @@ const Navbar = () => {
 
         {/* Navigation Links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              background: isActive('/dashboard') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
-              color: isActive('/dashboard') ? '#00ff87' : '#a0a0a0',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            Dashboard
-          </button>
-          <button onClick={() => navigate('/tienda')} style={{
-          background: isActive('/tienda') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
-          color: isActive('/tienda') ? '#00ff87' : '#a0a0a0',
-          border: 'none',
-          padding: '0.5rem 1rem',
-          borderRadius: '0.5rem',
-          cursor: 'pointer',
-          fontSize: '0.95rem',
-          fontWeight: '600',
-          transition: 'all 0.3s ease'
-        }}> Tienda</button>
+          {user?.rol !== 'admin' ? (
+            <> 
+              <button
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  background: isActive('/dashboard') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                  color: isActive('/dashboard') ? '#00ff87' : '#a0a0a0',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Dashboard
+              </button>
 
-
-          <button
-            onClick={() => navigate('/classes')}
-            style={{
-              background: isActive('/classes') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
-              color: isActive('/classes') ? '#00ff87' : '#a0a0a0',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            Clases
-          </button>
-
-          {user?.rol !== 'profesor' && (
-            <button
-              onClick={() => navigate('/my-classes')}
-              style={{
-                background: isActive('/my-classes') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
-                color: isActive('/my-classes') ? '#00ff87' : '#a0a0a0',
+              <button onClick={() => navigate('/tienda')} style={{
+                background: isActive('/tienda') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                color: isActive('/tienda') ? '#00ff87' : '#a0a0a0',
                 border: 'none',
                 padding: '0.5rem 1rem',
                 borderRadius: '0.5rem',
@@ -111,28 +81,101 @@ const Navbar = () => {
                 fontSize: '0.95rem',
                 fontWeight: '600',
                 transition: 'all 0.3s ease'
-              }}
-            >
-              Mis Clases
-            </button>
-          )}
+              }}> Tienda</button>
 
-          <button
-            onClick={() => navigate('/profile')}
-            style={{
-              background: isActive('/profile') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
-              color: isActive('/profile') ? '#00ff87' : '#a0a0a0',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-              fontSize: '0.95rem',
-              fontWeight: '600',
-              transition: 'all 0.3s ease'
-            }}
-          >
-            Perfil
-          </button>
+              <button
+                onClick={() => navigate('/classes')}
+                style={{
+                  background: isActive('/classes') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                  color: isActive('/classes') ? '#00ff87' : '#a0a0a0',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Clases
+              </button>
+
+              {user?.rol === 'profesor' ? (
+                <button
+                  onClick={() => navigate('/my-classes')}
+                  style={{
+                    background: isActive('/my-classes') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                    color: isActive('/my-classes') ? '#00ff87' : '#a0a0a0',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  Clases Tomadas
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/my-classes')}
+                  style={{
+                    background: isActive('/my-classes') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                    color: isActive('/my-classes') ? '#00ff87' : '#a0a0a0',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  Mis Clases
+                </button>
+              )}
+
+              {user && (
+                <button
+                  onClick={() => navigate('/profile')}
+                  style={{
+                    background: isActive('/profile') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                    color: isActive('/profile') ? '#00ff87' : '#a0a0a0',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  Perfil
+                </button>
+              )}
+            </>
+          ) : (
+            // Si es admin, sólo mostrar Perfil (si existe) y AdminPanel (el botón Admin está en User Menu)
+            user && (
+              <button
+                onClick={() => navigate('/profile')}
+                style={{
+                  background: isActive('/profile') ? 'rgba(0, 255, 135, 0.1)' : 'transparent',
+                  color: isActive('/profile') ? '#00ff87' : '#a0a0a0',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  cursor: 'pointer',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Perfil
+              </button>
+            )
+          )}
         </div>
 
         {/* User Menu */}

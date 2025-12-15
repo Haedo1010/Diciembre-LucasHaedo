@@ -22,24 +22,23 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      console.log('🔍 Validando token...');
+      console.log(' Validando token...');
       const response = await authAPI.validarToken();
-      console.log('✅ Respuesta validar-token:', response.data);
+      console.log(' Respuesta validar-token:', response.data);
       
-      // Maneja tanto 'user' como 'usuario'
       const usuario = response.data.user || response.data.usuario;
       
       if (usuario) {
-        console.log('👤 Usuario válido:', usuario);
+        console.log(' Usuario válido:', usuario);
         localStorage.setItem('usuario', JSON.stringify(usuario));
         setUser(usuario);
         setIsAuthenticated(true);
       } else {
-        console.warn('⚠️ Respuesta sin usuario');
+        console.warn(' Respuesta sin usuario');
         logout();
       }
     } catch (error) {
-      console.error('❌ Error en checkAuth:', error);
+      console.error(' Error en checkAuth:', error);
       if (error.response?.status === 401) {
         logout();
       }
@@ -50,9 +49,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (userData) => {
     try {
-      console.log('📤 Iniciando sesión...');
+      console.log(' Iniciando sesión...');
       const response = await authAPI.iniciarSesion(userData);
-      console.log('✅ Respuesta login:', response.data);
+      console.log(' Respuesta login:', response.data);
       
       // Extrae token y usuario (maneja ambos casos)
       const token = response.data.token;
@@ -62,7 +61,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Datos incompletos en la respuesta');
       }
       
-      console.log('👤 Usuario logueado:', usuario);
+      console.log(' Usuario logueado:', usuario);
       
       localStorage.setItem('token', token);
       localStorage.setItem('usuario', JSON.stringify(usuario));
@@ -70,12 +69,12 @@ export const AuthProvider = ({ children }) => {
       setUser(usuario);
       setIsAuthenticated(true);
 
-      alert(`✅ Bienvenido ${usuario.nombre}!`);
+      alert(` Bienvenido ${usuario.nombre}!`);
       return { success: true };
     } catch (error) {
-      console.error('❌ Error en login:', error);
+      console.error(' Error en login:', error);
       const errorMsg = error.response?.data?.error || error.message || 'Error en el login';
-      alert('❌ ' + errorMsg);
+      alert('[x] ' + errorMsg);
       return { success: false, message: errorMsg };
     }
   };
@@ -93,23 +92,29 @@ export const AuthProvider = ({ children }) => {
       setUser(usuario);
       setIsAuthenticated(true);
 
-      alert(`✅ ¡Registro exitoso! Bienvenido ${usuario.nombre}`);
+      alert(` ¡Registro exitoso! Bienvenido ${usuario.nombre}`);
       return { success: true };
     } catch (error) {
-      console.error('❌ Error en registro:', error);
+      console.error(' Error en registro:', error);
       const errorMsg = error.response?.data?.error || error.message || 'Error en el registro';
-      alert('❌ ' + errorMsg);
+      alert('[x] ' + errorMsg);
       return { success: false, message: errorMsg };
     }
   };
 
   const logout = () => {
-    console.log('👋 Cerrando sesión...');
+    console.log(' Cerrando sesión...');
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     setUser(null);
     setIsAuthenticated(false);
     window.location.href = '/login';
+  };
+
+  const setUserDirectly = (usuario) => {
+    setUser(usuario);
+    setIsAuthenticated(true);
+    localStorage.setItem('usuario', JSON.stringify(usuario));
   };
 
   const value = {
@@ -119,7 +124,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    checkAuth
+    checkAuth,
+    setUserDirectly
   };
 
   return (

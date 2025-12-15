@@ -188,7 +188,7 @@ const Purchases = () => {
                   <strong>Método de pago:</strong> {compra.metodo_pago || 'Tarjeta'}
                   {compra.numero_tarjeta && (
                     <span style={{ marginLeft: '1rem' }}>
-                      •••• {compra.numero_tarjeta.slice(-4)}
+                      ••••••••••••• {compra.numero_tarjeta.slice(-3)}
                     </span>
                   )}
                 </p>

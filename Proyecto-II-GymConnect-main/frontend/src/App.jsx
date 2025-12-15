@@ -4,6 +4,9 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import NonAdminRoute from './components/NonAdminRoute';
 import MyClasses from './pages/MyClasses';
 import Classes from './pages/Classes';
 import Tienda from './pages/Tienda';
@@ -24,13 +27,13 @@ function App() {
           <Route path="/solicitar-profesor" element={<SolicitarProfesor />} />
 
           {/* Rutas protegidas */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/my-classes" element={<MyClasses />} />
-          <Route path="/classes" element={<Classes />} />
-          <Route path="/tienda" element={<Tienda />} />
-          <Route path="/purchases" element={<Purchases />} />
-          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/dashboard" element={<NonAdminRoute><Dashboard /></NonAdminRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/my-classes" element={<NonAdminRoute><MyClasses /></NonAdminRoute>} />
+          <Route path="/classes" element={<NonAdminRoute><Classes /></NonAdminRoute>} />
+          <Route path="/tienda" element={<NonAdminRoute><Tienda /></NonAdminRoute>} />
+          <Route path="/purchases" element={<NonAdminRoute><Purchases /></NonAdminRoute>} />
+          <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
 
           {/* Redirección por defecto */}
           <Route path="*" element={<Navigate to="/" />} />

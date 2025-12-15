@@ -19,7 +19,7 @@ const ProfesorRequest = sequelize.define('ProfesorRequest', {
     type: DataTypes.STRING,
     allowNull: false
   },
-  email_personal: { // ✅ Asegurar que el nombre sea correcto
+  email_personal: {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {

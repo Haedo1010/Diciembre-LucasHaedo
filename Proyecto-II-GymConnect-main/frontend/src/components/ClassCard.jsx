@@ -12,32 +12,31 @@ const ClassCard = ({ clase, onEnroll }) => {
     // Verificar autenticación
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('❌ Debes iniciar sesión para inscribirte');
+      alert(' Debes iniciar sesión para inscribirte');
       window.location.href = '/login';
       return;
     }
 
-    console.log('🎯 Inscribiendo a clase:', clase.id);
+    console.log(' Inscribiendo a clase:', clase.id);
     
-    // ✅ LLAMADA CORREGIDA - usar la ruta correcta
     const response = await inscripcionesAPI.inscribirse(clase.id);
     
     setEnrolled(true);
-    alert('✅ ¡Inscripción exitosa!');
+    alert(' ¡Inscripción exitosa!');
     if (onEnroll) onEnroll();
     
   } catch (error) {
-    console.error('❌ Error en inscripción:', error);
+    console.error(' Error en inscripción:', error);
     
     if (error.response?.status === 401) {
-      alert('❌ Sesión expirada. Por favor, inicia sesión nuevamente.');
+      alert(' Sesión expirada. Por favor, inicia sesión nuevamente.');
       localStorage.removeItem('token');
       localStorage.removeItem('usuario');
       window.location.href = '/login';
     } else if (error.response?.status === 404) {
-      alert('❌ Error: La ruta de inscripción no existe. Contacta al administrador.');
+      alert(' Error: La ruta de inscripción no existe. Contacta al administrador.');
     } else {
-      alert('❌ Error: ' + (error.response?.data?.error || error.message));
+      alert(' Error: ' + (error.response?.data?.error || error.message));
     }
   } finally {
     setLoading(false);
@@ -101,7 +100,7 @@ const ClassCard = ({ clase, onEnroll }) => {
             opacity: loading ? 0.6 : 1
           }}
         >
-          {loading ? 'Inscribiendo...' : enrolled ? 'Ya inscrito' : 'Inscribirse'}
+          {loading ? 'Tomando...' : enrolled ? 'Ya tomada' : 'Tomar'}
         </button>
       </div>
     </div>

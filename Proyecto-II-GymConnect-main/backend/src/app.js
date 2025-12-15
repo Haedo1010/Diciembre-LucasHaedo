@@ -7,12 +7,16 @@ import enrollmentRoutes from './routes/enrollment.routes.js';
 import profesorRoutes from './routes/profesor.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import shopRoutes from './routes/shop.routes.js';
+import { loggingMiddleware, errorLoggingMiddleware } from './middlewares/loggingMiddleware.js';
 import './models/asociacion.js';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Middleware de logging
+app.use(loggingMiddleware);
 
 // Sincronizar BD
 (async () => {
@@ -42,5 +46,8 @@ console.log('   GET /api/inscripciones/test');
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
 });
+
+// Middleware de error logging (debe ser el último)
+app.use(errorLoggingMiddleware);
 
 export default app;

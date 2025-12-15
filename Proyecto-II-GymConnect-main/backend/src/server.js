@@ -7,9 +7,14 @@ import User from './models/User.js';
 import Role from './models/Role.js';
 import Class from './models/Class.js';
 import Product from './models/Product.js';
+import Permiso from './models/Permiso.js';
+import RolePermiso from './models/RolePermiso.js';
 import bcrypt from 'bcrypt';
+import { validateDatabase } from './utils/validateDatabase.js';
+import LoggerService from './utils/loggerService.js';
 
 const PORT = process.env.PORT || 5000;
+const logger = new LoggerService('SERVER');
 
 const crearClasesDeEjemplo = async () => {
   try {
@@ -207,9 +212,15 @@ const initDB = async () => {
   try {
     await sequelize.authenticate();
     console.log('Conectado a SQLite...');
+    logger.info('Conectado a la base de datos SQLite');
   
-    await sequelize.sync(); 
-
+    await sequelize.sync();
+    logger.info('Tablas sincronizadas');
+    
+    // Validar integridad de la BD antes de continuar
+    await validateDatabase();
+    logger.info('Validación de base de datos completada');
+  
     // Crear roles si no existen
     await Role.findOrCreate({
       where: { nombre: 'cliente' },
@@ -244,6 +255,49 @@ const initDB = async () => {
       console.log(' Usuario admin ya existe');
     }
 
+    // Crear permisos por defecto y asociarlos a roles
+    const permisosDef = [
+      { clave: 'ver_clases', descripcion: 'Ver listado de clases' },
+      { clave: 'crear_clase', descripcion: 'Crear nuevas clases' },
+      { clave: 'editar_clase', descripcion: 'Editar clases propias' },
+      { clave: 'eliminar_clase', descripcion: 'Eliminar clases' },
+      { clave: 'comprar', descripcion: 'Realizar compras en la tienda' },
+      { clave: 'gestionar_usuarios', descripcion: 'Administrar usuarios' }
+    ];
+
+    // Crear permisos si no existen
+    const permisosMap = {};
+    for (const p of permisosDef) {
+      const [permiso] = await Permiso.findOrCreate({ where: { clave: p.clave }, defaults: { descripcion: p.descripcion } });
+      permisosMap[p.clave] = permiso;
+    }
+
+    // Asociar permisos a roles (role_nombre)
+    const rolePermisosMap = {
+      admin: ['ver_clases', 'crear_clase', 'editar_clase', 'eliminar_clase', 'comprar', 'gestionar_usuarios'],
+      profesor: ['ver_clases', 'crear_clase', 'editar_clase'],
+      cliente: ['ver_clases', 'comprar']
+    };
+
+    for (const [roleName, claves] of Object.entries(rolePermisosMap)) {
+      // Verificar que el role exista antes de asociar permisos
+      const roleExists = await Role.findOne({ where: { nombre: roleName } });
+      if (!roleExists) {
+        console.warn(`Role '${roleName}' no existe — saltando asignación de permisos`);
+        continue;
+      }
+
+      for (const clave of claves) {
+        const permiso = permisosMap[clave];
+        if (!permiso) continue;
+        try {
+          await RolePermiso.findOrCreate({ where: { role_nombre: roleName, permiso_id: permiso.id }, defaults: { role_nombre: roleName, permiso_id: permiso.id } });
+        } catch (err) {
+          console.error(`No se pudo crear role_permiso ${roleName} -> ${clave}:`, err.message || err);
+        }
+      }
+    }
+
   
 
     console.log('\n==================================================');
@@ -256,15 +310,21 @@ const initDB = async () => {
       console.log(` Servidor GymConnect escuchando en http://localhost:${PORT}`);
       console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(' CORS habilitado');
+      
+      // Registrar inicio del servidor en bitácora
+      LoggerService.registrarInicioServidor(PORT, process.env.NODE_ENV || 'development');
     });
   } catch (error) {
     console.error(' Error inicializando:', error);
+    logger.error('Error fatal en inicialización', { mensaje: error.message, stack: error.stack });
     
     try {
       await sequelize.sync({ force: false });
       console.log(' Tablas sincronizadas (modo seguro)');
+      logger.info('Sincronización de emergencia completada');
     } catch (secondError) {
       console.error(' Error en sincronización segura:', secondError.message);
+      logger.error('Error en sincronización de emergencia', { mensaje: secondError.message });
       process.exit(1);
     }
   }

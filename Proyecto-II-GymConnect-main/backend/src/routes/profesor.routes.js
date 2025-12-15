@@ -2,8 +2,12 @@ import express from 'express';
 import ProfesorRequest from '../models/ProfesorRequest.js';
 import { enviarEmailSolicitudRecibida } from '../config/email.js';
 import { generarIdSeguro } from '../utils/idSeguro.js';
+import denyAdmin from '../middlewares/denyAdmin.js';
 
 const router = express.Router();
+
+// Evitar que usuarios con rol 'admin' accedan a rutas de solicitud de profesor
+router.use(denyAdmin);
 
 // Solicitar ser profesor (SIN token)
 router.post('/solicitar', async (req, res) => {
@@ -29,12 +33,12 @@ router.post('/solicitar', async (req, res) => {
       mensaje: mensaje ? mensaje.trim() : ''
     }).then(result => {
       if (result.success) {
-        console.log('✅ Email de confirmación enviado a:', email_personal);
+        console.log(' Email de confirmación enviado a:', email_personal);
       } else {
-        console.warn('⚠️ Email no enviado:', result.error);
+        console.warn(' Email no enviado:', result.error);
       }
     }).catch(emailError => {
-      console.warn('⚠️ Error en email (no crítico):', emailError.message);
+      console.warn(' Error en email (no crítico):', emailError.message);
     });
 
     // Responder inmediatamente al frontend

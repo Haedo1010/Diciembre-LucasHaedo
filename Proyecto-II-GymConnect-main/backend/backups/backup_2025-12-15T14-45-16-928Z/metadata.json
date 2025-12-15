@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-12-15T14:45:16.940Z",
+  "originalFile": "database.sqlite",
+  "originalSize": 69632,
+  "partitions": 3,
+  "partitionSizes": [
+    {
+      "numero": 1,
+      "tamaño": 23211
+    },
+    {
+      "numero": 2,
+      "tamaño": 23211
+    },
+    {
+      "numero": 3,
+      "tamaño": 23210
+    }
+  ],
+  "checksum": "001784F1"
+}

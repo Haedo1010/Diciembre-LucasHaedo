@@ -6,10 +6,16 @@ import ProfesorRequest from './ProfesorRequest.js';
 import Order from './Order.js';
 import OrderItem from './OrderItem.js';
 import Product from './Product.js';
+import Permiso from './Permiso.js';
+import RolePermiso from './RolePermiso.js';
 
 // Asociaciones User - Role
 User.belongsTo(Role, { foreignKey: 'rol', targetKey: 'nombre' });
 Role.hasMany(User, { foreignKey: 'rol', sourceKey: 'nombre' });
+
+// Asociaciones User - Class (Profesor - Clases que dirige)
+User.hasMany(Class, { foreignKey: 'profesor_id', as: 'clasesQueDirige' });
+Class.belongsTo(User, { foreignKey: 'profesor_id', as: 'profesor' });
 
 // Asociaciones User - Enrollment
 User.hasMany(Enrollment, { foreignKey: 'user_id' });
@@ -35,6 +41,17 @@ OrderItem.belongsTo(Order, { foreignKey: 'order_id' });
 Product.hasMany(OrderItem, { foreignKey: 'product_id' });
 OrderItem.belongsTo(Product, { foreignKey: 'product_id' });
 
+// Asociaciones Role - Permiso (many-to-many vía RolePermiso)
+Role.belongsToMany(Permiso, {
+  through: RolePermiso,
+  foreignKey: 'role_nombre',
+  otherKey: 'permiso_id'
+});
+
+Permiso.belongsToMany(Role, {
+  through: RolePermiso,
+  foreignKey: 'permiso_id',
+  otherKey: 'role_nombre'
+});
+
 console.log('✅ Asociaciones de modelos configuradas');
-
-

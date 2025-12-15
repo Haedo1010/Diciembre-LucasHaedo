@@ -1,8 +1,11 @@
 import express from 'express';
+import denyAdmin from '../middlewares/denyAdmin.js';
 import Order from '../models/Order.js';
 import OrderItem from '../models/OrderItem.js';
 import Product from '../models/Product.js';
+import User from '../models/User.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
+import { enviarComprobanteCompra } from '../config/email.js';
 
 const router = express.Router();
 
@@ -30,10 +33,17 @@ router.post('/ordenes', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'El carrito está vacío' });
     }
 
+    // Obtener datos del usuario
+    const usuario = await User.findByPk(userId, { attributes: ['nombre', 'email'] });
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
     // Verificar stock y calcular total
     let total = 0;
     const orderItems = [];
     const productosParaActualizar = [];
+    const productosDetalles = [];
 
     for (const item of items) {
       const producto = await Product.findByPk(item.product_id);
@@ -55,6 +65,12 @@ router.post('/ordenes', verifyToken, async (req, res) => {
         product_id: item.product_id,
         cantidad: item.cantidad,
         precio: producto.precio
+      });
+
+      productosDetalles.push({
+        nombre: producto.nombre,
+        cantidad: item.cantidad,
+        subtotal: subtotal
       });
 
       // Guardar productos para actualizar stock
@@ -88,6 +104,25 @@ router.post('/ordenes', verifyToken, async (req, res) => {
       await producto.update({ stock: nuevaCantidad });
     }
 
+    // Enviar comprobante por email (no bloqueante)
+    enviarComprobanteCompra({
+      email: usuario.email,
+      nombre: usuario.nombre,
+      orderId: order.id,
+      items: productosDetalles,
+      total: total,
+      metodoPago: metodo_pago || 'tarjeta',
+      numeroTarjeta: numero_tarjeta
+    }).then(result => {
+      if (result.success) {
+        console.log(` Comprobante enviado a ${usuario.email}`);
+      } else {
+        console.warn(` No se pudo enviar comprobante: ${result.error}`);
+      }
+    }).catch(emailError => {
+      console.warn(` Error en envío de comprobante (no crítico): ${emailError.message}`);
+    });
+
     res.status(201).json({ 
       message: 'Orden creada exitosamente',
       order_id: order.id,
@@ -101,6 +136,9 @@ router.post('/ordenes', verifyToken, async (req, res) => {
 });
 
 // OBTENER MIS COMPRAS CON PRODUCTOS REALES
+// Evitar que usuarios con rol 'admin' accedan a rutas de tienda
+router.use(denyAdmin);
+
 router.get('/mis-compras', verifyToken, async (req, res) => {
   try {
     const userId = req.usuario_id;

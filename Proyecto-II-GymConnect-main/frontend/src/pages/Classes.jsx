@@ -1,16 +1,29 @@
 import { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ClassCard from '../components/ClassCard';
+import { clasesAPI } from '../services/api';
 
 const Classes = () => {
   const [clases, setClases] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     cargarClases();
   }, []);
 
-  const cargarClases = () => {
+  const cargarClases = async () => {
+    try {
+      const response = await clasesAPI.obtenerTodas();
+      setClases(response.data);
+    } catch (error) {
+      console.error('Error cargando clases:', error);
+      cargarClasesLocales();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarClasesLocales = () => {
     setClases([
       {
         id: 1,
@@ -130,7 +143,6 @@ const Classes = () => {
         disponibles: 22
       }
     ]);
-    setLoading(false);
   };
 
   return (

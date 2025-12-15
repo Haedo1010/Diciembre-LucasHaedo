@@ -1,47 +1,40 @@
 import { useState } from 'react';
 import { tiendaAPI } from '../services/api';
+import PaymentModal from './PaymentModal';
 
 const CartSidebar = ({ isOpen, cart, onRemove, onClose, onCheckout }) => {
   const [loading, setLoading] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const total = cart.reduce((sum, item) => sum + item.precio, 0);
 
   const handleCheckout = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('❌ Debes iniciar sesión para comprar');
+      alert(' Debes iniciar sesión para comprar');
       return;
     }
 
     if (cart.length === 0) {
-      alert('🛒 El carrito está vacío');
+      alert(' El carrito está vacío');
       return;
     }
 
+    // Abrir modal de pago
+    setShowPayment(true);
+  };
+
+  const handleSubmitPayment = async (paymentData) => {
     setLoading(true);
-
     try {
-      const items = cart.map(item => ({
-        product_id: item.id,
-        cantidad: 1
-      }));
-
-      const response = await tiendaAPI.crearOrden({
-        items: items,
-        metodo_pago: 'tarjeta',
-        numero_tarjeta: '1234567890123456'
-      });
-
-      // ✅ Éxito con alert
-      alert(`✅ Compra exitosa! Orden #${response.data.order_id}`);
-      
-      // Limpiar carrito
+      const items = cart.map(item => ({ product_id: item.id, cantidad: 1 }));
+      const response = await tiendaAPI.crearOrden({ items, metodo_pago: paymentData.metodo_pago, numero_tarjeta: paymentData.numero_tarjeta });
+      const ultimosDos = paymentData.numero_tarjeta.slice(-2);
+      alert(`✅ ¡Pago exitoso!\nOrden: #${response.data.order_id}\nTarjeta: •••••••••••••${ultimosDos}`);
       onCheckout();
-      
+      return response;
     } catch (error) {
-      console.error('❌ Error en compra:', error);
-      
-      // ✅ Error con alert
-      alert('❌ ' + (error.response?.data?.error || 'No se pudo completar la compra'));
+      console.error(' Error en compra:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -195,6 +188,7 @@ const CartSidebar = ({ isOpen, cart, onRemove, onClose, onCheckout }) => {
             </button>
           </div>
         )}
+        <PaymentModal open={showPayment} onClose={() => setShowPayment(false)} total={total} loading={loading} onSubmit={handleSubmitPayment} />
       </div>
     </>
   );
